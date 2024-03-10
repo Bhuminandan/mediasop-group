@@ -19,6 +19,8 @@ const Home = () => {
   const [deviceState, setDevice] = useState(null);
   const [producerState, setProducer] = useState(null);
   const [transport, setTransport] = useState(null);
+  const [webcamClicked, setWebcamClicked] = useState(false);
+  const [webCamButtonDisabled, setWebCamButtonDisabled] = useState(false);
   const [paramsForTransportProducer, setParamsForTransportProducer] = useState({
     encoding: [
       {
@@ -48,7 +50,8 @@ const Home = () => {
 
 // UseEfferect to get the user
 const handleWebcamClick = () => {
-  
+  setWebcamClicked(prev => !prev)
+  setWebCamButtonDisabled(prev => !prev)
 }
 
 // UseEffect to make socket connection
@@ -95,11 +98,11 @@ useEffect(() => {
       }
       
     }
-    if (deviceState !== null && transport !== null) {
+    if (deviceState !== null && transport !== null && webcamClicked !== false) {
       fetchMedia()
     }
 
-  }, [deviceState, haveMedia, transport])
+  }, [deviceState, haveMedia, transport, webcamClicked])
 
 
   // Useffect to get routerRtpCapabilities
@@ -310,7 +313,7 @@ useEffect(() => {
           icon={<IoCamera />}
           bgColor='bg-violet-500'
           onClick={handleWebcamClick}
-          disabled={false}
+          disabled={webCamButtonDisabled}
           value={'webcam'}
       />
       <Button 
