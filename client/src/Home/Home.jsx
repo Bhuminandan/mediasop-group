@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import socketConnection from '../utilities/socketConnection'
-import { setSocket, updateReduxStatus } from '../redux/feature/mediasoupSlice'
+import {  updateReduxStatus } from '../redux/feature/mediasoupSlice'
 import socketIoListeners from '../webRtcUtilities/socketIoListeners'
 import { Device } from 'mediasoup-client';  
-import LocalVideo from '../components/videoComponents/LocalVideo'
 import { GrResume } from "react-icons/gr";
 import { Button } from '../components/common/Button'
 import { RxCross2 } from "react-icons/rx";
@@ -19,12 +18,14 @@ const Home = () => {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [deviceState, setDevice] = useState(null);
-  const [producerState, setProducer] = useState(null);
   const [transport, setTransport] = useState(null);
   const [consumerTransport, setConsumerTransport] = useState(null);
   const [webcamClicked, setWebcamClicked] = useState(false);
-  const [isConsumeClicked, setIsConsumeClicked] = useState(false);
+  const [shareScrrenClicked, setShareScrrenClicked] = useState(false);
+  const [producer, setProducer] = useState(null);
   const [webCamButtonDisabled, setWebCamButtonDisabled] = useState(false);
+  const [isShareScreenDesabled, setIsShareScreenDesabled] = useState(false);
+  const [isConsumeClicked, setIsConsumeClicked] = useState(false);
   const [isConsumebuttonDisabled, setIsConsumebuttonDisabled] = useState(false);
   const [isWebCam, setIsWebCam] = useState(true);
   const [isConsumerTransportCreated, setIsConsumerTransportCreated] = useState(false);
@@ -57,216 +58,72 @@ const Home = () => {
 
   // Making the webcam button click 
   // So the useEffect of getMedia could run
-  const handleWebcamClick = (e) => {
-
-    const value = e.target.value;
-
-    console.log('inside the >>>>>>>>>>>>> handleWebcamClick', value)
-    if (value === 'webcam') {
-      setWebcamClicked(true)
-      setWebCamButtonDisabled(true)
-      setIsWebCam(true)
-    } else {
-      setWebCamButtonDisabled(true)
-      setWebcamClicked(true)
-      setIsWebCam(false)
-    }
+  const handleWebcamClick = () => {
+    setWebcamClicked(true)
+    setIsWebCam(true)
   }
 
+  // Making the screen share button click
+  // So the useEffect of getMedia could run
+  const handleScrrenShareClick = () => {
+    setShareScrrenClicked(true)
+    setIsWebCam(false)
+} 
+
+  // Making the consume button click
   const handleSubscribeClick = () => {
     console.log('inside the >>>>>>>>>>>>> handleSubscribeClick')
     setIsConsumebuttonDisabled(true)
     setIsConsumeClicked(true)
+  }  
+
+
+  const handleCloseClick = () => {
+
+    if (!transport || !consumerTransport) {
+      return
+    }
+
+    console.log('inside the >>>>>>>>>>>>> handleCloseClick')
+    if (transport) {
+      transport.close()
+    }
+    if (consumerTransport) {
+      consumerTransport.close()
+    }
+    setTransport(null)
+    setWebcamClicked(false)
+    setIsConsumeClicked(false)
+    dispatch(updateReduxStatus({ prop: 'haveMedia', value: false }))
   }
 
-  // UseEffect to createConsumertransport
-  useEffect(() => {
-    const createConsumertransport = async () => {
-
-      console.log('Inside createConsumertransport&&&&&&&>>>>>>>>>>>>>>')
-
-      if (!deviceState) {
-        console.error('Device not found inside createConsumertransport!!!!')
-      }
-
-      const obj = {
-        forceTcp: false
-      }
-
-      socketState.emit('createConsumerTransport', obj )
-
-      socketState.on('consumerTransportCreated', async (params) => {
-         if (!params) {
-           console.log('error creating consumer transport', params)
-         }
-
-         const transport = await deviceState.createRecvTransport(params)
-         setConsumerTransport(transport);
-
-         setIsConsumerTransportCreated(true);
-
-         transport.on('connect', ({ dtlsParameters }, callback, errback) => {
-
-           socketState.emit('connectConsumerTransport', {
-             transportId: transport.id,
-             dtlsParameters,
-           })
-
-           socketState.on('consumerTransportConnected', () => {
-              callback();
-           })
-
-         })
-
-         transport.on('connectionstatechange', (state) => {
-           switch (state) {
-             case 'connecting':
-               console.log('+++++++++++++++++connecting')
-               break;
-               case 'connected':
-                socketState.emit('resume')
-                console.log('+++++++++++++++++connected')
-               break;
-             case 'failed':
-              transport.close();
-              console.log('+++++++++++++++++failed')
-               break;
-             default:
-               break;
-           }
-         })
-
-      })
-
-      socketState.on('consumerResumed', () => {
-        console.log('+++++++++++++++++consumerResumed')
-      })
-
-    }
-
-
-    if (deviceState && isConsumeClicked && socketState) {
-       createConsumertransport();
-    }
-    
-  }, [deviceState, isConsumeClicked])
-
-
-  // UseEffect to create consumer and get the remote stream
-  useEffect(() => {
-    const consume = () => {
-      
-      if (!deviceState) {
-        console.error('Device not found inside consume!!!!')
-      }
-
-      const { rtpCapabilities } = deviceState
-
-      socketState.emit('consume', {
-        rtpCapabilities,
-      })
-      
-      socketState.on('consumerCreated', async ( createdConsumer ) => {
-        if (!createdConsumer) {
-          console.log('no consumerxxxxxxxxxx')
-        }
-
-        const { producerId, id, kind, rtpParameters, type, producerPaused } = createdConsumer
-
-        let codecOptions = {}
-
-        const consumer = await consumerTransport.consume({
-          id,
-          producerId,
-          kind,
-          rtpParameters,
-          codecOptions,
-        })
-
-        console.log('Finally >>>>>>>>>>>>>@@@@@@@@@@@@@@', consumer)
-
-        const remoteStream = new MediaStream();
-        remoteStream.addTrack(consumer.track);
-
-        console.log('consumer track remote stream^^^^^^^^^^^^^^^^', remoteStream)
-
-        setRemoteStream(remoteStream);
-      })
-    }
-
-    if (isConsumerTransportCreated) {
-      consume();
-    }
-
-    console.log('isConsumerTransportConnected================>>>>>>>>>>>>>>>>', isConsumerTransportCreated)
-  }, [isConsumerTransportCreated])
-
+  // ---------------------------------------------
+  
   // UseEffect to make socket connection
+  // This will run when the page loads
   useEffect(() => {
     const makeSocketConnection = () => {
       const socket = socketConnection();
-      socketIoListeners(socket, dispatch)
       setSocketState(socket)
-    }
+    }  
 
     if (!isConnected && socketState === null) {
       makeSocketConnection()
-    }
-  }, [isConnected, socketState])
-
-
-  // UseEffect to fetch media
-  useEffect(() => {
-    const fetchMedia = async () => {
-
-      const constraints = {
-        audio: true,
-        video: true
-      }
-
-      try {
-        const stream = isWebCam ? 
-        await navigator.mediaDevices.getUserMedia(constraints) 
-        : 
-        await navigator.mediaDevices.getDisplayMedia({video: true});
-
-        const track = stream.getVideoTracks()[0];
-        setParamsForTransportProducer({
-          ...paramsForTransportProducer,
-          track
-        })
-
-        setLocalStream(stream)
-
-        dispatch(updateReduxStatus({ prop: 'haveMedia', value: true }))       
-
-      } catch (error) {
-        console.log("error", error)
-      }
-      
-    }
-    if (deviceState !== null && transport !== null && webcamClicked !== false) {
-      fetchMedia()
-    }
-
-  }, [deviceState, haveMedia, transport, webcamClicked])
-
-
+    }  
+  }, [isConnected, socketState])   
+  
   // Useffect to get routerRtpCapabilities
   useEffect(() => {
 
+    // Getting the routerRtpCapabilities
     const getRouterRtpCapabilities = async () => {
-
-      
-      
       socketState.emit('getRouterRtpCapabilities', (rtpCapabilities) => {
         if (!rtpCapabilities) {
           return;
         }
-
-        dispatch(updateReduxStatus({ prop: 'routerRtpCapabilities', value: rtpCapabilities }))
       })
 
+      // Getting the routerRtpCapabilities from server and setting it in redux
       socketState.on("routerRtpCapabilities", (rtpCapabilities) => {
         if (!rtpCapabilities) {
             return;
@@ -280,7 +137,6 @@ const Home = () => {
     }
 
   }, [socketState, routerRtpCapabilities])
-
 
   // Useffect to create device
   useEffect(() => {
@@ -309,7 +165,6 @@ const Home = () => {
     }
 
   }, [routerRtpCapabilities])
-
 
   // Use Effct to create transport 
   useEffect(() => {
@@ -405,7 +260,6 @@ const Home = () => {
     }
   }, [deviceLoadCalled, deviceState])
 
-
   // Use Effect to connect send transport
   useEffect(() => {
 
@@ -417,23 +271,18 @@ const Home = () => {
 
       try {
 
-        console.log('inside connectSendTransport==========', paramsForTransportProducer)
+      console.log('inside connectSendTransport==========', paramsForTransportProducer)
       const producer = await transport.produce(
         paramsForTransportProducer
       )
 
       producer.on('transportclose', () => {
         console.log('transportclose')
-        setProducer(null)
       })
 
       producer.on('trackended', () => {
         console.log('trackended')
       })
-
-
-      setProducer(producer);
-
         
       } catch (error) {
         console.log('error connecting send transport', error)
@@ -441,12 +290,169 @@ const Home = () => {
 
     }
 
-    if (transport !== null && paramsForTransportProducer.track) {
+    if (transport && paramsForTransportProducer.track) {
       connectSendTransport()
     }
-    
+
   }, [deviceState, transport, paramsForTransportProducer])
 
+  // UseEffect to fetch media
+  useEffect(() => {
+    const fetchMedia = async () => {
+
+      const constraints = {
+        audio: true,
+        video: true
+      }
+
+      try {
+        const stream = isWebCam ? 
+        await navigator.mediaDevices.getUserMedia(constraints) 
+        : 
+        await navigator.mediaDevices.getDisplayMedia({video: true});
+
+        const track = stream.getVideoTracks()[0];
+        setParamsForTransportProducer({
+          ...paramsForTransportProducer,
+          track
+        })
+
+        setLocalStream(stream)
+
+        dispatch(updateReduxStatus({ prop: 'haveMedia', value: true }))       
+
+      } catch (error) {
+        console.log("error", error)
+      }
+      
+    }
+    if (haveMedia === false && deviceState && transport && webcamClicked || shareScrrenClicked) {
+      fetchMedia()
+    }
+
+    console.log('webcamClicked', webcamClicked, shareScrrenClicked, haveMedia, deviceState, transport)
+
+  }, [webcamClicked, shareScrrenClicked])
+
+  
+  // UseEffect to createConsumertransport
+  useEffect(() => {
+    const createConsumertransport = async () => {
+
+      if (!deviceState) {
+        console.error('Device not found inside createConsumertransport!!!!')
+      }
+
+      const obj = {
+        forceTcp: false
+      }
+
+      socketState.emit('createConsumerTransport', obj )
+
+      socketState.on('consumerTransportCreated', async (params) => {
+          if (!params) {
+            console.log('error creating consumer transport', params)
+          }
+
+          const transport = await deviceState.createRecvTransport(params)
+          setConsumerTransport(transport);
+
+          setIsConsumerTransportCreated(true);
+
+          transport.on('connect', ({ dtlsParameters }, callback, errback) => {
+
+            socketState.emit('connectConsumerTransport', {
+              transportId: transport.id,
+              dtlsParameters,
+            })
+
+            socketState.on('consumerTransportConnected', () => {
+              callback();
+            })
+
+          })
+
+          transport.on('connectionstatechange', (state) => {
+            switch (state) {
+              case 'connecting':
+                console.log('+++++++++++++++++connecting')
+                break;
+                case 'connected':
+                socketState.emit('resume')
+                console.log('+++++++++++++++++connected')
+                break;
+              case 'failed':
+              transport.close();
+              console.log('+++++++++++++++++failed')
+                break;
+              default:
+                break;
+            }
+          })
+
+      })
+
+      socketState.on('consumerResumed', () => {
+        console.log('+++++++++++++++++consumerResumed')
+      })
+
+    }
+
+
+    if (deviceState && isConsumeClicked && socketState) {
+        createConsumertransport();
+    }
+    
+  }, [deviceState, isConsumeClicked])
+
+  // UseEffect to create consumer and get the remote stream
+  useEffect(() => {
+    const consume = () => {
+      
+      if (!deviceState) {
+        console.error('Device not found inside consume!!!!')
+      }
+
+      const { rtpCapabilities } = deviceState
+
+      socketState.emit('consume', {
+        rtpCapabilities,
+      })
+      
+      socketState.on('consumerCreated', async ( createdConsumer ) => {
+        if (!createdConsumer) {
+          console.log('no consumerxxxxxxxxxx')
+        }
+
+        const { producerId, id, kind, rtpParameters, type, producerPaused } = createdConsumer
+
+        let codecOptions = {}
+
+        const consumer = await consumerTransport.consume({
+          id,
+          producerId,
+          kind,
+          rtpParameters,
+          codecOptions,
+        })
+
+        console.log('Finally >>>>>>>>>>>>>@@@@@@@@@@@@@@', consumer)
+
+        const remoteStream = new MediaStream();
+        remoteStream.addTrack(consumer.track);
+
+        console.log('consumer track remote stream^^^^^^^^^^^^^^^^', remoteStream)
+
+        setRemoteStream(remoteStream);
+      })
+    }
+
+    if (isConsumerTransportCreated) {
+      consume();
+    }
+
+    console.log('isConsumerTransportConnected================>>>>>>>>>>>>>>>>', isConsumerTransportCreated)
+  }, [isConsumerTransportCreated])
 
 return (
     <div className="flex items-center justify-center flex-col w-full h-full m-auto">
@@ -460,7 +466,7 @@ return (
           icon={<IoCamera />}
           bgColor='bg-violet-500'
           onClick={handleWebcamClick}
-          disabled={webCamButtonDisabled}
+          disabled={false}
           value={'webcam'}
       />
       <Button 
@@ -474,23 +480,21 @@ return (
       <Button
           icon={<MdScreenShare />}
           bgColor='bg-violet-500'
-          onClick={handleWebcamClick}
-          disabled={webCamButtonDisabled}
+          onClick={handleScrrenShareClick}
+          disabled={false}
           value={'screen'}
       />
       <Button
           icon={<GrResume />}
           bgColor='bg-violet-500'
           onClick={handleSubscribeClick}
-          disabled={isConsumebuttonDisabled}
+          disabled={false}
           value={'subscribe'}
       />
       <Button 
           icon={<RxCross2 />}
           bgColor='bg-red-500'
-          onClick={() => {
-          console.log('close')
-          }}
+          onClick={handleCloseClick}
           disabled={false}
       />
       </div>
