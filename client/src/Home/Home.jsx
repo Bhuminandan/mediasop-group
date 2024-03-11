@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import socketConnection from '../utilities/socketConnection'
 import {  updateReduxStatus } from '../redux/feature/mediasoupSlice'
-import socketIoListeners from '../webRtcUtilities/socketIoListeners'
 import { Device } from 'mediasoup-client';  
-import { GrResume } from "react-icons/gr";
+import { FaRegEye, FaEyeSlash  } from "react-icons/fa";
 import { Button } from '../components/common/Button'
 import { RxCross2 } from "react-icons/rx";
 import { IoCamera } from "react-icons/io5";
-import { FaMicrophoneAlt } from "react-icons/fa";
-import { MdScreenShare } from "react-icons/md";
+import { BsFillCameraVideoOffFill } from "react-icons/bs";
+import { FaMicrophoneAlt,FaMicrophoneAltSlash  } from "react-icons/fa";
+import { MdScreenShare,MdOutlineStopScreenShare  } from "react-icons/md";
 import ReactPlayer from 'react-player'
 
 const Home = () => {
@@ -23,8 +23,9 @@ const Home = () => {
   const [webcamClicked, setWebcamClicked] = useState(false);
   const [shareScrrenClicked, setShareScrrenClicked] = useState(false);
   const [producer, setProducer] = useState(null);
-  const [webCamButtonDisabled, setWebCamButtonDisabled] = useState(false);
-  const [isShareScreenDesabled, setIsShareScreenDesabled] = useState(false);
+  const [isCamOn, setIsCamOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [isScreenOn, setIsScreenOn] = useState(false);
   const [isConsumeClicked, setIsConsumeClicked] = useState(false);
   const [isConsumebuttonDisabled, setIsConsumebuttonDisabled] = useState(false);
   const [isWebCam, setIsWebCam] = useState(true);
@@ -59,15 +60,70 @@ const Home = () => {
   // Making the webcam button click 
   // So the useEffect of getMedia could run
   const handleWebcamClick = () => {
-    setWebcamClicked(true)
-    setIsWebCam(true)
+
+    if (isScreenOn) {
+      return
+    }
+
+    if (haveMedia) {
+      localStream.getVideoTracks().forEach(track => {
+        if (track.enabled) {
+          track.enabled = false
+          setIsCamOn(false)
+        } else {
+          track.enabled = true
+          setIsCamOn(true)
+        }
+      })
+    } else {
+      setIsMicOn(true)
+      setWebcamClicked(true)
+      setIsWebCam(true)
+      setIsCamOn(true)
+    }
+
+  }
+
+  const handleMicrophoneClick = () => {
+    if (haveMedia) {
+      localStream.getAudioTracks().forEach(track => {
+        if (track.enabled) {
+          track.enabled = false
+          setIsMicOn(false)
+        }
+        else {
+          track.enabled = true
+          setIsMicOn(true)
+        }
+      })
+    }
   }
 
   // Making the screen share button click
   // So the useEffect of getMedia could run
   const handleScrrenShareClick = () => {
-    setShareScrrenClicked(true)
-    setIsWebCam(false)
+
+    if (isCamOn) {
+      return
+    }
+
+    if (haveMedia) {
+      localStream.getVideoTracks().forEach(track => {
+        if (track.enabled) {
+          track.enabled = false
+          setIsScreenOn(false)
+        }
+        else {
+          track.enabled = true
+          setIsScreenOn(true)
+        }
+      })
+      
+    } else {
+      setShareScrrenClicked(true)
+      setIsWebCam(false)
+      setIsScreenOn(true)
+    }
 } 
 
   // Making the consume button click
@@ -79,10 +135,6 @@ const Home = () => {
 
 
   const handleCloseClick = () => {
-
-    if (!transport || !consumerTransport) {
-      return
-    }
 
     console.log('inside the >>>>>>>>>>>>> handleCloseClick')
     if (transport) {
@@ -463,29 +515,27 @@ return (
       <div className='mt-10'>
       <div className='w-full flex items-center justify-center gap-4'>
       <Button
-          icon={<IoCamera />}
+          icon={isCamOn ?  <IoCamera /> : <BsFillCameraVideoOffFill />}
           bgColor='bg-violet-500'
           onClick={handleWebcamClick}
           disabled={false}
           value={'webcam'}
       />
       <Button 
-          icon={<FaMicrophoneAlt />}
+          icon={ isMicOn ? <FaMicrophoneAlt /> : <FaMicrophoneAltSlash /> }
           bgColor='bg-violet-500'
-          onClick={() => {
-              console.log('mic')
-          }}
+          onClick={handleMicrophoneClick}
           disabled={false}
       />
       <Button
-          icon={<MdScreenShare />}
+          icon={ isScreenOn ? <MdScreenShare /> : <MdOutlineStopScreenShare  />}
           bgColor='bg-violet-500'
           onClick={handleScrrenShareClick}
           disabled={false}
           value={'screen'}
       />
       <Button
-          icon={<GrResume />}
+          icon={ isConsumeClicked ? <FaRegEye /> : <FaEyeSlash /> }
           bgColor='bg-violet-500'
           onClick={handleSubscribeClick}
           disabled={false}
