@@ -7,7 +7,7 @@ const config = {
         numWorkers: os.cpus().length,
         worker: {
             rtcMinPort: 3000,
-            rtcMaxPort: 3030,
+            rtcMaxPort: 3300,
             logLevel: 'debug',
             logTags: [
                 'info',

@@ -82,6 +82,9 @@ const Home = () => {
       setIsCamOn(true)
     }
 
+    console.log(localStream)
+    console.log(remoteStream)
+
   }
 
   const handleMicrophoneClick = () => {
@@ -147,6 +150,8 @@ const Home = () => {
     setWebcamClicked(false)
     setIsConsumeClicked(false)
     dispatch(updateReduxStatus({ prop: 'haveMedia', value: false }))
+    setLocalStream(null)
+    setRemoteStream(null)
   }
 
   // ---------------------------------------------
@@ -225,6 +230,7 @@ const Home = () => {
 
         if (!deviceState) {
           console.error('Device not found inside createTranspost!!!!')
+          return;
         }
 
         const src = {
@@ -307,10 +313,10 @@ const Home = () => {
         })
     }
     
-    if (deviceLoadCalled) {
+    if (deviceLoadCalled || transport !== null) {
       createTranspost()
     }
-  }, [deviceLoadCalled, deviceState])
+  }, [deviceLoadCalled, deviceState, webcamClicked])
 
   // Use Effect to connect send transport
   useEffect(() => {
@@ -318,12 +324,11 @@ const Home = () => {
     const connectSendTransport = async () => {
       if (!transport) {
         console.log('transport not found inside connectSendTransport')
-        return
+        return;
       }
 
       try {
 
-      console.log('inside connectSendTransport==========', paramsForTransportProducer)
       const producer = await transport.produce(
         paramsForTransportProducer
       )
@@ -368,6 +373,8 @@ const Home = () => {
           ...paramsForTransportProducer,
           track
         })
+
+        console.log("track-new > > > >", track)
 
         setLocalStream(stream)
 
