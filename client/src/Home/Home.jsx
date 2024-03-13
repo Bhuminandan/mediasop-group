@@ -11,6 +11,7 @@ import { BsFillCameraVideoOffFill } from "react-icons/bs";
 import { FaMicrophoneAlt,FaMicrophoneAltSlash  } from "react-icons/fa";
 import { MdScreenShare,MdOutlineStopScreenShare  } from "react-icons/md";
 import ReactPlayer from 'react-player'
+import { FaUser } from "react-icons/fa";
 
 const Home = () => {
 
@@ -52,11 +53,11 @@ const Home = () => {
       videoGoogleStartBitrate: 1000
     }
   });
+  
 
   const dispatch = useDispatch()
-  const { isConnected, haveMedia, routerRtpCapabilities, deviceLoadCalled } = useSelector(state => state.mediasoup)
+  const { isConnected, haveMedia, routerRtpCapabilities, deviceLoadCalled, roomId } = useSelector(state => state.mediasoup)
                     
-
   // Making the webcam button click 
   // So the useEffect of getMedia could run
   const handleWebcamClick = () => {
@@ -160,7 +161,7 @@ const Home = () => {
   // This will run when the page loads
   useEffect(() => {
     const makeSocketConnection = () => {
-      const socket = socketConnection();
+      const socket = socketConnection(roomId);
       setSocketState(socket)
     }  
 
@@ -483,7 +484,7 @@ const Home = () => {
           console.log('no consumerxxxxxxxxxx')
         }
 
-        const { producerId, id, kind, rtpParameters, type, producerPaused } = createdConsumer
+        const { producerId, id, kind, rtpParameters } = createdConsumer
 
         let codecOptions = {}
 
@@ -513,13 +514,53 @@ const Home = () => {
     console.log('isConsumerTransportConnected================>>>>>>>>>>>>>>>>', isConsumerTransportCreated)
   }, [isConsumerTransportCreated])
 
+
+  // UseEffect to check if the producer already exists if yes then invoke receive process
+  useEffect(() => {
+    const receive = () => {
+      socketState.on("newProducer", async ({id}) => {
+        if (!id) {
+          console.log('no id')
+        }
+
+        console.log('id?????????????', id);
+        console.log('RouterRtpCapabilities', routerRtpCapabilities);
+      })
+    }
+
+    if (socketState) {
+      receive()
+    }
+  }, [socketState])
+
 return (
-    <div className="flex items-center justify-center flex-col w-full h-full m-auto">
+    <div className="flex items-center justify-center flex-col w-screen h-screen m-auto bg-stone-950">
       <div className='w-full flex items-center justify-center gap-2'>
-        <ReactPlayer playing url={localStream} /> 
-        <ReactPlayer playing url={remoteStream} /> 
+        <div>
+          {
+            localStream ?
+            <div className='top-5 left-5 absolute'>
+              <ReactPlayer width={'40%'} height={'30%'} playing url={localStream} /> 
+            </div>
+            : 
+            <div className='bg-stone-400  h-32 w-32 flex items-center justify-center'>
+              <FaUser className='w-36 h-36' />
+            </div>
+          }
+        </div>
+        {
+          remoteStream ?
+          <div className='w-10/12'>
+            <ReactPlayer width={'100%'} height={'70%'}  playing url={remoteStream} /> 
+          </div>
+          :
+          <div className='bg-stone-400  h-32 w-32 flex items-center justify-center'>
+            <FaUser className='w-36 h-36' />
+          </div>
+        }
+        
       </div>
-      <div className='mt-10'>
+      <div className='mt-10 bottom-5 absolute'>
       <div className='w-full flex items-center justify-center gap-4'>
       <Button
           icon={isCamOn ?  <IoCamera /> : <BsFillCameraVideoOffFill />}

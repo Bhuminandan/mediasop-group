@@ -25,6 +25,8 @@ mediasoupRouter = createMediasoupRouter();
 io.on('connection', async (socket) => {
 
     console.log('user connected', socket.id);
+    const room = socket.handshake.auth.roomId
+    socket.join(room);
 
     
     socket.on('disconnect', () => {
@@ -120,8 +122,8 @@ io.on('connection', async (socket) => {
         try {
             producer = await producerTransport.produce({ kind, rtpParameters })
             const { id } = producer;
-            socket.emit('producerCreated', id)
-            broadcast({eventName:'newProducer',data:'new user!'})
+            socket.emit('producerCreated', id)  
+            io.sockets.in(room).emit('newProducer', {id});
         } catch (error) {
             console.log('error producing', error)
         }
@@ -167,13 +169,6 @@ io.on('connection', async (socket) => {
             console.log('cannot consume')
         }
         
-    }
-
-    const broadcast = ({eventName,data}) => {
-
-        console.log('broadcasting>>>>>>>>>>>>>>>>>>>>>>>>>>>>', eventName, data)
-
-        io.emit(`${eventName}`, data)
     }
 
 })
